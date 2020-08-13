@@ -1,0 +1,10 @@
+# THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
+#
+# Generated on 2020-08-13T21:33:19Z by kres 3d35a96-dirty.
+
+**
+!net.go
+!net_test.go
+!go.mod
+!go.sum
+!.golangci.yml
