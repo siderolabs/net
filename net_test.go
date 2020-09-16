@@ -113,3 +113,35 @@ func TestNthIPInNetwork(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateEndpointURI(t *testing.T) {
+	goodTests := []string{
+		"http://216.22.102.222",
+		"https://[2001:db8:abef::ffff]:65000",
+		"https://[2001:db8::ffff]",
+		"http://goethe.de",
+	}
+
+	for _, testEP := range goodTests {
+		assert.Nil(t, talosnet.ValidateEndpointURI(testEP), "URI should be valid")
+	}
+
+	badTests := []string{
+		"12.34.56.89:1234",                 // ipv4:port, no protocol
+		"[2001:db8::1]:5040",               // ipv6:port, no protocol
+		"hostA:65301",                      // host:port, no protocol
+		"my.long.domain.name:10101",        // dns:port, no protocol
+		"192.168.2.1",                      // IP without port
+		"[2001:db8::1]",                    // IPv6 without port
+		"kubernetes.io",                    // hostname without port
+		"2001:db8:123:445:204",             // IPv6 without brackets
+		"http://2001:db8:101:101::1:50000", // IPv6 URL without brackets
+		"http://192.168.1.1:1020304",       // Port out of range
+		"http://192.168.1.1:0",             // 0 Port
+		"http://192.168.1.1:-1000",         // Negative Port
+	}
+
+	for _, testEP := range badTests {
+		assert.NotNil(t, talosnet.ValidateEndpointURI(testEP), "URI should be invalid")
+	}
+}
