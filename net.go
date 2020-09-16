@@ -10,9 +10,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
+
+const minPortRange = 1
+
+const maxPortRange = 65535
 
 // IPAddrs finds and returns a list of non-loopback IP addresses of the
 // current machine.
@@ -168,4 +174,44 @@ func IsIPv6(addrs ...net.IP) bool {
 	}
 
 	return false
+}
+
+// ValidateEndpointURI checks that an endpoint is valid.
+// This is a more strict check that merely `url.Parse`, in that it requires such things as properly-ranged numeric ports and bracket-enclosed IPv6 addresses.
+func ValidateEndpointURI(ep string) error {
+	u, err := url.Parse(ep)
+	if err != nil {
+		return err
+	}
+
+	if strings.Count(u.Host, ":") > 2 {
+		// More than two colon indicates that we must have an IPv6 address.
+		// If we have an IPv6 address, it *must* be enclosed by brackets.
+		if strings.Count(u.Host, "[") < 1 || strings.Count(u.Host, "]") < 1 {
+			return fmt.Errorf("IPv6 addresses MUST be enclosed by square brackets")
+		}
+	}
+
+	if u.Hostname() == "" {
+		return fmt.Errorf("hostname must not be blank")
+	}
+
+	if u.Port() != "" {
+		return validatePortNumber(u.Port())
+	}
+
+	return nil
+}
+
+func validatePortNumber(p string) error {
+	portInt, err := strconv.Atoi(p)
+	if err != nil {
+		return fmt.Errorf("port number must be numeric")
+	}
+
+	if portInt < minPortRange || portInt > maxPortRange {
+		return fmt.Errorf("port number must be between %d and %d", minPortRange, maxPortRange)
+	}
+
+	return nil
 }
