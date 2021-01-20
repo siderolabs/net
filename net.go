@@ -110,6 +110,34 @@ func NthIPInNetwork(network *net.IPNet, n int) (net.IP, error) {
 	return nil, errors.New("network does not contain enough IPs")
 }
 
+// SplitCIDRs parses list of CIDRs in a string separated by commas.
+func SplitCIDRs(cidrList string) (out []*net.IPNet, err error) {
+	for _, podCIDR := range strings.Split(cidrList, ",") {
+		_, cidr, err := net.ParseCIDR(podCIDR)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %q as a CIDR: %w", podCIDR, err)
+		}
+
+		out = append(out, cidr)
+	}
+
+	return out, nil
+}
+
+// NthIPInCIDRSet returns nth IP for each CIDR in the list.
+func NthIPInCIDRSet(cidrList []*net.IPNet, offset int) (out []net.IP, err error) {
+	for _, cidr := range cidrList {
+		ip, err := NthIPInNetwork(cidr, offset)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate offset %d from CIDR %s: %w", offset, cidr, err)
+		}
+
+		out = append(out, ip)
+	}
+
+	return out, nil
+}
+
 // DNSNames returns a default set of machine names. It includes the hostname,
 // and FQDN if the kernel domain name is set. If the kernel domain name is not
 // set, only the hostname is included in the set.
@@ -171,6 +199,19 @@ func IsIPv6(addrs ...net.IP) bool {
 				return true
 			}
 		}
+	}
+
+	return false
+}
+
+// IsNonLocalIPv6 indicates whether provided address is non-local IPv6 address.
+func IsNonLocalIPv6(in net.IP) bool {
+	if in == nil || in.IsLoopback() || in.IsUnspecified() {
+		return false
+	}
+
+	if in.To4() == nil && in.To16() != nil {
+		return true
 	}
 
 	return false
