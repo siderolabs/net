@@ -57,6 +57,13 @@ func FormatAddress(addr string) string {
 	return addr
 }
 
+// FormatCIDR formats IP from the network as CIDR notation.
+func FormatCIDR(ip net.IP, network net.IPNet) string {
+	ones, _ := network.Mask.Size()
+
+	return fmt.Sprintf("%s/%d", ip, ones)
+}
+
 // AddressContainsPort checks to see if the supplied address contains both an address and a port.
 // This will not catch every possible permutation, but it is a best-effort routine suitable for prechecking human-interactive parameters.
 func AddressContainsPort(addr string) bool {

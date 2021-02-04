@@ -43,6 +43,17 @@ func TestFormatAddress(t *testing.T) {
 	assert.Equal(t, talosnet.FormatAddress("alpha.beta.gamma.com"), "alpha.beta.gamma.com")
 }
 
+func TestFormatCIDR(t *testing.T) {
+	ip4 := net.ParseIP("192.168.1.1")
+	_, cidr4, _ := net.ParseCIDR("192.168.0.0/16") //nolint: errcheck
+
+	ip6 := net.ParseIP("2001:db8::1")
+	_, cidr6, _ := net.ParseCIDR("2001:db8::/32") //nolint: errcheck
+
+	assert.Equal(t, talosnet.FormatCIDR(ip4, *cidr4), "192.168.1.1/16")
+	assert.Equal(t, talosnet.FormatCIDR(ip6, *cidr6), "2001:db8::1/32")
+}
+
 //nolint: scopelint
 func TestNthIPInNetwork(t *testing.T) {
 	type args struct {
