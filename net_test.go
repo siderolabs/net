@@ -5,6 +5,7 @@
 package net_test
 
 import (
+	"fmt"
 	"net"
 	"reflect"
 	"testing"
@@ -154,5 +155,51 @@ func TestValidateEndpointURI(t *testing.T) {
 
 	for _, testEP := range badTests {
 		assert.NotNil(t, talosnet.ValidateEndpointURI(testEP), "URI should be invalid")
+	}
+}
+
+func TestParseCIDR(t *testing.T) {
+	goodTests := map[string]*net.IPNet{
+		"10.66.0.66": {
+			IP:   net.ParseIP("10.66.0.66"),
+			Mask: net.CIDRMask(32, 32),
+		},
+		"10.66.0.66/24": {
+			IP:   net.ParseIP("10.66.0.66"),
+			Mask: net.CIDRMask(24, 32),
+		},
+		"2001:db8:abef::ffff": {
+			IP:   net.ParseIP("2001:db8:abef::ffff"),
+			Mask: net.CIDRMask(128, 128),
+		},
+		"2001:db8:abef::ffff/32": {
+			IP:   net.ParseIP("2001:db8:abef::ffff"),
+			Mask: net.CIDRMask(32, 128),
+		},
+		"[2001:db8:abef::ffff]/32": {
+			IP:   net.ParseIP("2001:db8:abef::ffff"),
+			Mask: net.CIDRMask(32, 128),
+		},
+	}
+
+	for in, expected := range goodTests {
+		parsedIP, err := talosnet.ParseCIDR(in)
+		assert.Nil(t, err, "error should be nil")
+		assert.True(t, parsedIP.IP.Equal(expected.IP), "IP addresses should be equal")
+		assert.Equal(t, expected.Mask.String(), parsedIP.Mask.String(), "Network masks should be equal")
+	}
+
+	badTests := []string{
+		"hostname.domain.org",        // name instead of IP
+		"http://hostname.domain.org", // URL instead of IP
+		"12.34.56.89:1234",           //  IP + port
+		"12.34.56.89/96",             //  Subnet mask out of range for family
+		"12.34.56.89/96",             //  Subnet mask out of range for family
+		"[2001:db8::1]:5040",         // ipv6 + port
+	}
+
+	for _, in := range badTests {
+		_, err := talosnet.ParseCIDR(in)
+		assert.NotNil(t, err, fmt.Sprintf("ParseCIDR(%s) should return an error", in))
 	}
 }

@@ -263,3 +263,46 @@ func validatePortNumber(p string) error {
 
 	return nil
 }
+
+// ParseCIDR parses a CIDR-formatted IP address.
+// Unlike the standard library version, this will return the IP address itself, rather than the bare IP and the network address.
+// If no CIDR notation is supplied, the address is presumed to be on a solo network (/32 for IPv4 or /128 for IPv6).
+// NOTE: Unlike rtnl.ParseCIDR, this allows network addresses, since in many
+// places in the kubernetes ecosystem, the functionality of a "network address"
+// is not used and improperly prevents the use of an entire range of IP
+// addresses.
+func ParseCIDR(in string) (*net.IPNet, error) {
+	if AddressContainsPort(in) {
+		return nil, fmt.Errorf("CIDR address %q must not contain a port", in)
+	}
+
+	// Strip any IPv6 brackets.
+	in = strings.Map(func(r rune) rune {
+		switch r {
+		case '[':
+			return rune(-1)
+		case ']':
+			return rune(-1)
+		default:
+			return r
+		}
+	}, in)
+
+	// If we have no subnet, assume it is solo.
+	if soloIP := net.ParseIP(in); soloIP != nil {
+		if IsIPv6(soloIP) {
+			in += "/128"
+		} else {
+			in += "/32"
+		}
+	}
+
+	baseIP, cidr, err := net.ParseCIDR(in)
+	if err != nil {
+		return nil, err
+	}
+
+	cidr.IP = baseIP
+
+	return cidr, nil
+}
