@@ -306,3 +306,58 @@ func ParseCIDR(in string) (*net.IPNet, error) {
 
 	return cidr, nil
 }
+
+// FilterIPs filters list of IPs with the list of subnets.
+//
+// Each subnet can be either regular match or negative match (if prefixed with '!').
+//
+//nolint:gocognit
+func FilterIPs(ips []net.IP, cidrs []string) ([]net.IP, error) {
+	var result []net.IP
+
+	for _, subnet := range cidrs {
+		positiveMatch := true
+
+		if strings.HasPrefix(subnet, "!") {
+			// negative CIDR
+			subnet = subnet[1:]
+			positiveMatch = false
+		}
+
+		network, err := ParseCIDR(subnet)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse subnet: %w", err)
+		}
+
+		for _, ip := range ips {
+			switch {
+			case network.Contains(ip) && positiveMatch:
+				// add IP to the list if not duplicate
+				found := false
+
+				for _, addr := range result {
+					if addr.Equal(ip) {
+						found = true
+
+						break
+					}
+				}
+
+				if !found {
+					result = append(result, ip)
+				}
+			case network.Contains(ip) && !positiveMatch:
+				// remote IP from the list
+				for i, addr := range result {
+					if addr.Equal(ip) {
+						result = append(result[:i], result[i+1:]...)
+
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return result, nil
+}

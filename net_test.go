@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	talosnet "github.com/talos-systems/net"
 )
@@ -116,7 +117,7 @@ func TestNthIPInNetwork(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := talosnet.NthIPInNetwork(tt.args.network, tt.args.n)
 			if err != nil {
-				t.Errorf("%w", err)
+				t.Errorf("%s", err)
 			}
 
 			if !reflect.DeepEqual(got, tt.want) {
@@ -201,5 +202,73 @@ func TestParseCIDR(t *testing.T) {
 	for _, in := range badTests {
 		_, err := talosnet.ParseCIDR(in)
 		assert.NotNil(t, err, fmt.Sprintf("ParseCIDR(%s) should return an error", in))
+	}
+}
+
+func TestFilterIPs(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct { //nolint:govet
+		name     string
+		ips      []string
+		cidrs    []string
+		expected string
+	}{
+		{
+			name: "v4 and v6",
+			ips: []string{
+				"10.3.4.6",
+				"2001:db8::1",
+			},
+			cidrs: []string{
+				"0.0.0.0/0",
+				"::/0",
+			},
+			expected: "[10.3.4.6 2001:db8::1]",
+		},
+		{
+			name: "negative",
+			ips: []string{
+				"10.3.4.6",
+				"10.3.4.1",
+				"172.20.0.1",
+			},
+			cidrs: []string{
+				"10.0.0.0/8",
+				"!10.3.4.1/32",
+			},
+			expected: "[10.3.4.6]",
+		},
+		{
+			name: "duplicate match",
+			ips: []string{
+				"10.3.4.6",
+				"172.20.0.1",
+			},
+			cidrs: []string{
+				"10.0.0.0/8",
+				"0.0.0.0/0",
+			},
+			expected: "[10.3.4.6 172.20.0.1]",
+		},
+	} {
+		tt := tt
+
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ips := make([]net.IP, len(tt.ips))
+
+			for i := range ips {
+				ips[i] = net.ParseIP(tt.ips[i])
+
+				require.NotNil(t, ips[i])
+			}
+
+			result, err := talosnet.FilterIPs(ips, tt.cidrs)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expected, fmt.Sprintf("%s", result))
+		})
 	}
 }
