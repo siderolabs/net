@@ -272,3 +272,69 @@ func TestFilterIPs(t *testing.T) {
 		})
 	}
 }
+
+func TestIPFilter(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct { //nolint:govet
+		name     string
+		ips      []string
+		filters  []talosnet.IPFilterFunc
+		expected string
+	}{
+		{
+			name: "no filters",
+			ips: []string{
+				"10.3.4.6",
+				"2001:db8::1",
+			},
+			expected: "[10.3.4.6 2001:db8::1]",
+		},
+		{
+			name: "even",
+			ips: []string{
+				"10.3.4.6",
+				"10.3.4.1",
+				"172.20.0.1",
+				"2001:db8::1",
+				"2001:db8::2",
+			},
+			filters: []talosnet.IPFilterFunc{
+				func(addr net.IP) bool { return addr[len(addr)-1]%2 == 0 },
+			},
+			expected: "[10.3.4.6 2001:db8::2]",
+		},
+		{
+			name: "even and not v6",
+			ips: []string{
+				"10.3.4.6",
+				"10.3.4.1",
+				"172.20.0.1",
+				"2001:db8::2",
+			},
+			filters: []talosnet.IPFilterFunc{
+				func(addr net.IP) bool { return addr[len(addr)-1]%2 == 0 },
+				func(addr net.IP) bool { return addr.To4() != nil },
+			},
+			expected: "[10.3.4.6]",
+		},
+	} {
+		tt := tt
+
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ips := make([]net.IP, len(tt.ips))
+
+			for i := range ips {
+				ips[i] = net.ParseIP(tt.ips[i])
+
+				require.NotNil(t, ips[i])
+			}
+
+			result := talosnet.IPFilter(ips, tt.filters...)
+
+			assert.Equal(t, tt.expected, fmt.Sprintf("%s", result))
+		})
+	}
+}

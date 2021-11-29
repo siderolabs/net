@@ -41,6 +41,35 @@ func IPAddrs() (ips []net.IP, err error) {
 	return ips, nil
 }
 
+// IPFilterFunc filters IP addresses.
+//
+// List of IPFilterFuncs is applied with AND logic: all filters should return true
+// for the IP address to be included in the response.
+type IPFilterFunc func(ip net.IP) bool
+
+// IPFilter filters list of IP addresses by applying sequence of filters.
+//
+// If any of the filters returns false, address is skipped.
+func IPFilter(addrs []net.IP, filters ...IPFilterFunc) (result []net.IP) {
+	for _, addr := range addrs {
+		skip := false
+
+		for _, filter := range filters {
+			if !filter(addr) {
+				skip = true
+
+				break
+			}
+		}
+
+		if !skip {
+			result = append(result, addr)
+		}
+	}
+
+	return result
+}
+
 // FormatAddress checks that the address has a consistent format.
 func FormatAddress(addr string) string {
 	addr = strings.Trim(addr, "[]")
