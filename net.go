@@ -96,15 +96,15 @@ func FormatCIDR(ip net.IP, network net.IPNet) string {
 // AddressContainsPort checks to see if the supplied address contains both an address and a port.
 // This will not catch every possible permutation, but it is a best-effort routine suitable for prechecking human-interactive parameters.
 func AddressContainsPort(addr string) bool {
-	if !strings.Contains(addr, ":") {
+	if !strings.Contains(addr, ":") || strings.Contains(addr, "/") {
 		return false
 	}
-
-	pieces := strings.Split(addr, ":")
 
 	if ip := net.ParseIP(strings.Trim(addr, "[]")); ip != nil {
 		return false
 	}
+
+	pieces := strings.Split(addr, ":")
 
 	// Check to see if it parses as an IP _without_ the last (presumed) `:port`
 	trimmedAddr := strings.TrimSuffix(addr, ":"+pieces[len(pieces)-1])

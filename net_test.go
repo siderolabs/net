@@ -32,6 +32,8 @@ func TestAddressContainsPort(t *testing.T) {
 
 	assert.Equal(t, talosnet.AddressContainsPort("[2001:db8:3:4:5:6:7:1:bad]:64321"), false)
 	assert.Equal(t, talosnet.AddressContainsPort("2001:db8:0::2000"), false)
+	assert.Equal(t, talosnet.AddressContainsPort("fd00::169:254:2:53"), false)
+	assert.Equal(t, talosnet.AddressContainsPort("[fd00::169:254:2:53]"), false)
 	assert.Equal(t, talosnet.AddressContainsPort("::1"), false)
 	assert.Equal(t, talosnet.AddressContainsPort("127.0.0.1"), false)
 	assert.Equal(t, talosnet.AddressContainsPort("node0"), false)
@@ -181,11 +183,19 @@ func TestParseCIDR(t *testing.T) {
 			IP:   net.ParseIP("2001:db8:abef::ffff"),
 			Mask: net.CIDRMask(32, 128),
 		},
+		"[fd00::169:254:2:53]/128": {
+			IP:   net.ParseIP("fd00::169:254:2:53"),
+			Mask: net.CIDRMask(128, 128),
+		},
+		"fd00::169:254:2:53/128": {
+			IP:   net.ParseIP("fd00::169:254:2:53"),
+			Mask: net.CIDRMask(128, 128),
+		},
 	}
 
 	for in, expected := range goodTests {
 		parsedIP, err := talosnet.ParseCIDR(in)
-		assert.Nil(t, err, "error should be nil")
+		require.Nil(t, err, "error should be nil")
 		assert.True(t, parsedIP.IP.Equal(expected.IP), "IP addresses should be equal")
 		assert.Equal(t, expected.Mask.String(), parsedIP.Mask.String(), "Network masks should be equal")
 	}
