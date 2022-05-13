@@ -215,6 +215,65 @@ func TestParseCIDR(t *testing.T) {
 	}
 }
 
+func TestIPPrefixFrom(t *testing.T) {
+	for _, tt := range []struct {
+		address string
+		netmask string
+		result  string
+	}{
+		{
+			address: "1.1.1.1",
+			netmask: "255.255.255.0",
+			result:  "1.1.1.1/24",
+		},
+		{
+			address: "2001:db8:abef::ffff",
+			netmask: "64",
+			result:  "2001:db8:abef::ffff/64",
+		},
+		{
+			address: "2001:db8:abef::ffff",
+			netmask: "ffff:ffff:ffff:ff00::",
+			result:  "2001:db8:abef::ffff/56",
+		},
+		{
+			address: "10.20.30.40/255.255.240.0",
+			result:  "10.20.30.40/20",
+		},
+		{
+			address: "2001:db8:abef::ffff/56",
+			result:  "2001:db8:abef::ffff/56",
+		},
+		{
+			address: "2001:db8:abef::ffff",
+			result:  "2001:db8:abef::ffff/128",
+		},
+	} {
+		parsedIP, err := talosnet.IPPrefixFrom(tt.address, tt.netmask)
+		assert.Nil(t, err, "error should be nil")
+		assert.Equal(t, parsedIP.String(), tt.result, "IP addresses should be equal")
+	}
+
+	for _, tt := range []struct {
+		address string
+		netmask string
+	}{
+		{
+			address: "1.1.1.1",
+			netmask: "not a mask",
+		},
+		{
+			address: "1.1.1.1:80",
+		},
+		{
+			address: "1.1.1.1/64",
+		},
+	} {
+		_, err := talosnet.IPPrefixFrom(tt.address, tt.netmask)
+		assert.NotNil(t, err, fmt.Sprintf("TestIPPrefixFrom(%s,%s) should return an error", tt.address, tt.netmask))
+	}
+}
+
 func TestFilterIPs(t *testing.T) {
 	t.Parallel()
 

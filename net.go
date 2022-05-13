@@ -14,6 +14,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"inet.af/netaddr"
 )
 
 const minPortRange = 1
@@ -334,6 +336,49 @@ func ParseCIDR(in string) (*net.IPNet, error) {
 	cidr.IP = baseIP
 
 	return cidr, nil
+}
+
+// IPPrefixFrom make netaddr.IPPrefix from cidr-address and netmask strings.
+// address can be IP or CIDR (1.1.1.1 or 1.1.1.1/8 or 1.1.1.1/255.0.0.0)
+// netmask can be IP or number (255.255.255.0 or 24 or empty).
+func IPPrefixFrom(address, netmask string) (netaddr.IPPrefix, error) {
+	cidr := strings.SplitN(address, "/", 2)
+	if len(cidr) == 1 {
+		address = cidr[0]
+	} else {
+		address = cidr[0]
+		netmask = cidr[1]
+	}
+
+	ip, err := netaddr.ParseIP(address)
+	if err != nil {
+		return netaddr.IPPrefix{}, fmt.Errorf("failed to parse ip address: %w", err)
+	}
+
+	if netmask == "" {
+		if ip.Is4() {
+			netmask = "32"
+		} else {
+			netmask = "128"
+		}
+	}
+
+	bits, err := strconv.Atoi(netmask)
+	if err != nil {
+		netmask, err := netaddr.ParseIP(netmask)
+		if err != nil {
+			return netaddr.IPPrefix{}, fmt.Errorf("failed to parse netmask: %w", err)
+		}
+
+		mask, _ := netmask.MarshalBinary() //nolint:errcheck // never fails
+		bits, _ = net.IPMask(mask).Size()
+	}
+
+	if ip.Is4() && bits > 32 {
+		return netaddr.IPPrefix{}, fmt.Errorf("failed netmask should be the same address family")
+	}
+
+	return netaddr.IPPrefixFrom(ip, uint8(bits)), nil
 }
 
 // FilterIPs filters list of IPs with the list of subnets.
