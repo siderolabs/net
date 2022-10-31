@@ -8,7 +8,6 @@ package net
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
@@ -209,7 +208,7 @@ func DNSNames() (dnsNames []string, err error) {
 func DomainName() (domainname string, err error) {
 	var b []byte
 
-	if b, err = ioutil.ReadFile("/proc/sys/kernel/domainname"); err != nil {
+	if b, err = os.ReadFile("/proc/sys/kernel/domainname"); err != nil {
 		return "", err
 	}
 

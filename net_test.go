@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	talosnet "github.com/talos-systems/net"
+	talosnet "github.com/siderolabs/net"
 )
 
 func TestEmpty(t *testing.T) {
@@ -58,7 +58,7 @@ func TestFormatCIDR(t *testing.T) {
 	assert.Equal(t, talosnet.FormatCIDR(ip6, *cidr6), "2001:db8::1/32")
 }
 
-//nolint: scopelint
+//nolint:scopelint
 func TestNthIPInNetwork(t *testing.T) {
 	type args struct {
 		network *net.IPNet
