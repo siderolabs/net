@@ -6,7 +6,7 @@ package net_test
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"reflect"
 	"testing"
 
@@ -15,13 +15,6 @@ import (
 
 	talosnet "github.com/siderolabs/net"
 )
-
-func TestEmpty(t *testing.T) {
-	// added for accurate coverage estimation
-	//
-	// please remove it once any unit-test is added
-	// for this package
-}
 
 func TestAddressContainsPort(t *testing.T) {
 	assert.Equal(t, talosnet.AddressContainsPort("192.168.1.1:9021"), true)
@@ -48,71 +41,59 @@ func TestFormatAddress(t *testing.T) {
 }
 
 func TestFormatCIDR(t *testing.T) {
-	ip4 := net.ParseIP("192.168.1.1")
-	_, cidr4, _ := net.ParseCIDR("192.168.0.0/16") //nolint: errcheck
+	ip4 := netip.MustParseAddr("192.168.1.1")
+	cidr4 := netip.MustParsePrefix("192.168.0.0/16")
 
-	ip6 := net.ParseIP("2001:db8::1")
-	_, cidr6, _ := net.ParseCIDR("2001:db8::/32") //nolint: errcheck
+	ip6 := netip.MustParseAddr("2001:db8::1")
+	cidr6 := netip.MustParsePrefix("2001:db8::/32")
 
-	assert.Equal(t, talosnet.FormatCIDR(ip4, *cidr4), "192.168.1.1/16")
-	assert.Equal(t, talosnet.FormatCIDR(ip6, *cidr6), "2001:db8::1/32")
+	assert.Equal(t, talosnet.FormatCIDR(ip4, cidr4), "192.168.1.1/16")
+	assert.Equal(t, talosnet.FormatCIDR(ip6, cidr6), "2001:db8::1/32")
 }
 
 //nolint:scopelint
 func TestNthIPInNetwork(t *testing.T) {
 	type args struct {
-		network *net.IPNet
+		network netip.Prefix
 		n       int
 	}
 
-	tests := []struct {
+	tests := []struct { //nolint:govet
 		name string
 		args args
-		want net.IP
+		want netip.Addr
 	}{
 		{
 			name: "increment IPv4 by 1",
 			args: args{
-				network: &net.IPNet{
-					IP:   net.IP{10, 96, 0, 0},
-					Mask: net.IPMask{255, 255, 255, 0},
-				},
-				n: 1,
+				network: netip.MustParsePrefix("10.96.0.0/24"),
+				n:       1,
 			},
-			want: net.IP{10, 96, 0, 1},
+			want: netip.MustParseAddr("10.96.0.1"),
 		},
 		{
 			name: "increment IPv4 by 10",
 			args: args{
-				network: &net.IPNet{
-					IP:   net.IP{10, 96, 0, 0},
-					Mask: net.IPMask{255, 255, 255, 0},
-				},
-				n: 10,
+				network: netip.MustParsePrefix("10.96.0.0/24"),
+				n:       10,
 			},
-			want: net.IP{10, 96, 0, 10},
+			want: netip.MustParseAddr("10.96.0.10"),
 		},
 		{
 			name: "increment IPv6 by 1",
 			args: args{
-				network: &net.IPNet{
-					IP:   net.ParseIP("2001:db8:a0b:12f0::1"),
-					Mask: net.IPMask{255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-				},
-				n: 1,
+				network: netip.MustParsePrefix("2001:db8:a0b:12f0::1/16"),
+				n:       1,
 			},
-			want: net.ParseIP("2001:db8:a0b:12f0::2"),
+			want: netip.MustParseAddr("2001:db8:a0b:12f0::2"),
 		},
 		{
 			name: "increment IPv6 by 10",
 			args: args{
-				network: &net.IPNet{
-					IP:   net.ParseIP("2001:db8:a0b:12f0::1"),
-					Mask: net.IPMask{255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-				},
-				n: 10,
+				network: netip.MustParsePrefix("2001:db8:a0b:12f0::1/16"),
+				n:       10,
 			},
-			want: net.ParseIP("2001:db8:a0b:12f0::b"),
+			want: netip.MustParseAddr("2001:db8:a0b:12f0::b"),
 		},
 	}
 	for _, tt := range tests {
@@ -161,60 +142,6 @@ func TestValidateEndpointURI(t *testing.T) {
 	}
 }
 
-func TestParseCIDR(t *testing.T) {
-	goodTests := map[string]*net.IPNet{
-		"10.66.0.66": {
-			IP:   net.ParseIP("10.66.0.66"),
-			Mask: net.CIDRMask(32, 32),
-		},
-		"10.66.0.66/24": {
-			IP:   net.ParseIP("10.66.0.66"),
-			Mask: net.CIDRMask(24, 32),
-		},
-		"2001:db8:abef::ffff": {
-			IP:   net.ParseIP("2001:db8:abef::ffff"),
-			Mask: net.CIDRMask(128, 128),
-		},
-		"2001:db8:abef::ffff/32": {
-			IP:   net.ParseIP("2001:db8:abef::ffff"),
-			Mask: net.CIDRMask(32, 128),
-		},
-		"[2001:db8:abef::ffff]/32": {
-			IP:   net.ParseIP("2001:db8:abef::ffff"),
-			Mask: net.CIDRMask(32, 128),
-		},
-		"[fd00::169:254:2:53]/128": {
-			IP:   net.ParseIP("fd00::169:254:2:53"),
-			Mask: net.CIDRMask(128, 128),
-		},
-		"fd00::169:254:2:53/128": {
-			IP:   net.ParseIP("fd00::169:254:2:53"),
-			Mask: net.CIDRMask(128, 128),
-		},
-	}
-
-	for in, expected := range goodTests {
-		parsedIP, err := talosnet.ParseCIDR(in)
-		require.Nil(t, err, "error should be nil")
-		assert.True(t, parsedIP.IP.Equal(expected.IP), "IP addresses should be equal")
-		assert.Equal(t, expected.Mask.String(), parsedIP.Mask.String(), "Network masks should be equal")
-	}
-
-	badTests := []string{
-		"hostname.domain.org",        // name instead of IP
-		"http://hostname.domain.org", // URL instead of IP
-		"12.34.56.89:1234",           //  IP + port
-		"12.34.56.89/96",             //  Subnet mask out of range for family
-		"12.34.56.89/96",             //  Subnet mask out of range for family
-		"[2001:db8::1]:5040",         // ipv6 + port
-	}
-
-	for _, in := range badTests {
-		_, err := talosnet.ParseCIDR(in)
-		assert.NotNil(t, err, fmt.Sprintf("ParseCIDR(%s) should return an error", in))
-	}
-}
-
 func TestFilterIPs(t *testing.T) {
 	t.Parallel()
 
@@ -250,6 +177,19 @@ func TestFilterIPs(t *testing.T) {
 			expected: "[10.3.4.6]",
 		},
 		{
+			name: "bare IP",
+			ips: []string{
+				"10.3.4.6",
+				"10.3.4.1",
+				"172.20.0.1",
+			},
+			cidrs: []string{
+				"10.0.0.0/8",
+				"!10.3.4.1",
+			},
+			expected: "[10.3.4.6]",
+		},
+		{
 			name: "duplicate match",
 			ips: []string{
 				"10.3.4.6",
@@ -267,12 +207,10 @@ func TestFilterIPs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ips := make([]net.IP, len(tt.ips))
+			ips := make([]netip.Addr, len(tt.ips))
 
 			for i := range ips {
-				ips[i] = net.ParseIP(tt.ips[i])
-
-				require.NotNil(t, ips[i])
+				ips[i] = netip.MustParseAddr(tt.ips[i])
 			}
 
 			result, err := talosnet.FilterIPs(ips, tt.cidrs)
@@ -283,68 +221,16 @@ func TestFilterIPs(t *testing.T) {
 	}
 }
 
-func TestIPFilter(t *testing.T) {
-	t.Parallel()
+func TestSplitCIDRs(t *testing.T) {
+	cidrs, err := talosnet.SplitCIDRs("192.168.0.3/24,fed0::1/64")
+	require.NoError(t, err)
 
-	for _, tt := range []struct { //nolint:govet
-		name     string
-		ips      []string
-		filters  []talosnet.IPFilterFunc
-		expected string
-	}{
-		{
-			name: "no filters",
-			ips: []string{
-				"10.3.4.6",
-				"2001:db8::1",
-			},
-			expected: "[10.3.4.6 2001:db8::1]",
-		},
-		{
-			name: "even",
-			ips: []string{
-				"10.3.4.6",
-				"10.3.4.1",
-				"172.20.0.1",
-				"2001:db8::1",
-				"2001:db8::2",
-			},
-			filters: []talosnet.IPFilterFunc{
-				func(addr net.IP) bool { return addr[len(addr)-1]%2 == 0 },
-			},
-			expected: "[10.3.4.6 2001:db8::2]",
-		},
-		{
-			name: "even and not v6",
-			ips: []string{
-				"10.3.4.6",
-				"10.3.4.1",
-				"172.20.0.1",
-				"2001:db8::2",
-			},
-			filters: []talosnet.IPFilterFunc{
-				func(addr net.IP) bool { return addr[len(addr)-1]%2 == 0 },
-				func(addr net.IP) bool { return addr.To4() != nil },
-			},
-			expected: "[10.3.4.6]",
-		},
-	} {
-		tt := tt
+	assert.Equal(t, []netip.Prefix{netip.MustParsePrefix("192.168.0.0/24"), netip.MustParsePrefix("fed0::/64")}, cidrs)
+}
 
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+func TestNthIPInCIDRSet(t *testing.T) {
+	addrs, err := talosnet.NthIPInCIDRSet([]netip.Prefix{netip.MustParsePrefix("192.168.0.0/24"), netip.MustParsePrefix("fed0::/64")}, 128)
+	require.NoError(t, err)
 
-			ips := make([]net.IP, len(tt.ips))
-
-			for i := range ips {
-				ips[i] = net.ParseIP(tt.ips[i])
-
-				require.NotNil(t, ips[i])
-			}
-
-			result := talosnet.IPFilter(ips, tt.filters...)
-
-			assert.Equal(t, tt.expected, fmt.Sprintf("%s", result))
-		})
-	}
+	assert.Equal(t, []netip.Addr{netip.MustParseAddr("192.168.0.128"), netip.MustParseAddr("fed0::80")}, addrs)
 }
