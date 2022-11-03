@@ -214,3 +214,10 @@ func FilterIPs(ips []netip.Addr, cidrs []string) ([]netip.Addr, error) {
 
 	return result, nil
 }
+
+// FilterLocalNetIPs filters list of IPs with the local subnets (rfc1918, rfc4193).
+func FilterLocalNetIPs(ips []netip.Addr) ([]netip.Addr, error) {
+	localSubnets := []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fd00::/8"}
+
+	return FilterIPs(ips, localSubnets)
+}

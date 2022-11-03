@@ -221,6 +221,51 @@ func TestFilterIPs(t *testing.T) {
 	}
 }
 
+func TestFilterLocalNetIPs(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct { //nolint:govet
+		name     string
+		ips      []string
+		expected string
+	}{
+		{
+			name: "v4 and v6 local",
+			ips: []string{
+				"10.3.4.6",
+				"fd00:db8::1",
+			},
+			expected: "[10.3.4.6 fd00:db8::1]",
+		},
+		{
+			name: "not local",
+			ips: []string{
+				"8.8.8.8",
+				"2001:db8:123:445:204::1",
+				"169.254.169.254",
+			},
+			expected: "[]",
+		},
+	} {
+		tt := tt
+
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ips := make([]netip.Addr, len(tt.ips))
+
+			for i := range ips {
+				ips[i] = netip.MustParseAddr(tt.ips[i])
+			}
+
+			result, err := talosnet.FilterLocalNetIPs(ips)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expected, fmt.Sprintf("%s", result))
+		})
+	}
+}
+
 func TestSplitCIDRs(t *testing.T) {
 	cidrs, err := talosnet.SplitCIDRs("192.168.0.3/24,fed0::1/64")
 	require.NoError(t, err)
